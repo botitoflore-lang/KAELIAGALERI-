@@ -2,92 +2,129 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Archive Studio</title>
-    <!-- Firebase SDK -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal Archive Studio </title>
+    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
+
     <style>
         :root {
-    --bg: #050505;
-    --surface: #0f0f0f;
-    --accent: #ff00aa; /* Color neón sutil */
-    --border: #1a1a1a;
-}
+            --bg: #050505;
+            --surface: #0f0f0f;
+            --accent: #ff00aa;
+            --border: #1a1a1a;
+            --text-dim: #666;
+        }
 
-body {
-    margin: 0; background: var(--bg); color: white;
-    font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent;
-}
+        body {
+            margin: 0; background: var(--bg); color: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
 
-/* Header para celular: Todo en una línea */
-nav {
-    position: sticky; top: 0; background: rgba(5,5,5,0.95);
-    backdrop-filter: blur(10px); z-index: 100; padding: 12px 10px;
-    border-bottom: 1px solid var(--border);
-}
+        /* BARRA DE NAVEGACIÓN */
+        nav {
+            position: sticky; top: 0; background: rgba(5,5,5,0.95);
+            backdrop-filter: blur(15px); z-index: 100; padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+        }
 
-.nav-container {
-    display: flex; align-items: center; gap: 10px; max-width: 1200px; margin: 0 auto;
-}
+        .nav-container {
+            display: flex; align-items: center; gap: 10px; 
+            max-width: 1200px; margin: 0 auto;
+        }
 
-#search {
-    flex: 1; background: var(--surface); border: 1px solid var(--border);
-    padding: 10px; border-radius: 8px; color: white; font-size: 16px; /* Evita zoom en iPhone */
-}
+        #search {
+            flex: 1; background: var(--surface); border: 1px solid var(--border);
+            padding: 10px 15px; border-radius: 10px; color: white; font-size: 16px;
+            outline: none; transition: border-color 0.3s;
+        }
+        #search:focus { border-color: var(--accent); }
 
-/* Grid Inteligente: 1 columna en cel, 2 o más en tablets/PC */
-.main-content { padding: 15px; }
+        .btn-add {
+            background: white; color: black; border: none; padding: 10px 18px;
+            border-radius: 8px; font-weight: 600; font-size: 0.8rem;
+            cursor: pointer; text-transform: uppercase;
+        }
 
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr));
-    gap: 20px;
-}
+        /* PANEL DE SUBIDA */
+        #uploadPanel {
+            display: none; background: var(--surface); padding: 20px;
+            border-bottom: 1px solid var(--border); animation: slide 0.3s ease;
+        }
+        @keyframes slide { from { opacity: 0; transform: translateY(-10px); } }
 
-/* Tarjetas Proporcionales */
-.thumb {
-    width: 100%;
-    aspect-ratio: 16 / 9; /* Esto hace que siempre tengan forma de video */
-    background: #000; border-radius: 12px; overflow: hidden;
-    position: relative; border: 1px solid var(--border);
-}
+        .upload-form {
+            max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+        }
+        .upload-form input {
+            background: #000; border: 1px solid var(--border); padding: 12px;
+            color: white; border-radius: 8px; outline: none; font-size: 0.9rem;
+        }
 
-.thumb video, .thumb iframe {
-    width: 100% !important; height: 100% !important;
-    object-fit: cover; border: none;
-}
+        /* CUADRÍCULA DE VIDEOS */
+        .main-content { padding: 15px; max-width: 1400px; margin: 0 auto; }
 
-.info h3 { font-size: 0.95rem; margin: 10px 0 5px; font-weight: 500; }
-.tags { font-size: 0.75rem; color: #666; }
+        .section-title {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 3px;
+            color: var(--text-dim); margin: 30px 0 15px; display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* Modal que se adapta al ancho del cel */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+            gap: 20px;
+        }
+
+        .card { cursor: pointer; transition: transform 0.2s; }
+        .card:active { transform: scale(0.98); }
+
+        .thumb {
+            width: 100%; aspect-ratio: 16 / 9; background: #000;
+            border-radius: 12px; overflow: hidden; position: relative;
+            border: 1px solid var(--border);
+        }
+        .thumb video, .thumb iframe {
+            width: 100% !important; height: 100% !important;
+            object-fit: cover; border: none; pointer-events: none;
+        }
+
+        .info h3 { font-size: 0.9rem; margin: 10px 0 4px; font-weight: 500; }
+        .tags { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* REPRODUCTOR (MODAL) */
         #modal {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.98);
             z-index: 1000; align-items: center; justify-content: center; padding: 10px;
         }
-        .modal-inner { width: 100%; max-width: 900px; position: relative; }
-        #player { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; }
-        <style>
+        .modal-inner { width: 100%; max-width: 1000px; position: relative; }
+        #player { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+        
+        .close-btn {
+            position: absolute; top: -50px; right: 0;
+            background: none; border: none; color: white; font-size: 2rem; cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
     <nav>
         <div class="nav-container">
-            <div style="letter-spacing: 2px; font-size: 0.8rem;">GLOBAL ARCHIVE</div>
-            <input type="text" id="search" placeholder="Search title, tag or category...">
-            <button class="btn" onclick="toggleUpload()">+ Add</button>
+            <input type="text" id="search" placeholder="Buscar título o #tags..." autocomplete="off">
+            <button class="btn-add" onclick="toggleUpload()">+ Subir</button>
         </div>
     </nav>
 
     <div id="uploadPanel">
         <div class="upload-form">
-            <input type="text" id="upUrl" placeholder="Video URL (mp4, youtube, etc)">
-            <input type="text" id="upTitle" placeholder="Title">
-            <input type="text" id="upCat" placeholder="Category">
-            <input type="text" id="upTags" placeholder="Tags (comma separated)">
-            <button class="btn" onclick="saveToFirebase()">Publicar en la Web</button>
+            <input type="text" id="upUrl" placeholder="Link del video (.mp4 o embed)">
+            <input type="text" id="upTitle" placeholder="Título del video">
+            <input type="text" id="upCat" placeholder="Categoría (Ej: Hentai, POV)">
+            <input type="text" id="upTags" placeholder="Tags (separadas por comas)">
+            <button class="btn-add" onclick="saveVideo()" style="width: 100%">Publicar</button>
         </div>
     </div>
 
@@ -95,51 +132,54 @@ nav {
 
     <div id="modal">
         <div class="modal-inner">
-            <button class="close-btn" onclick="closeModal()">✕ Close</button>
+            <button class="close-btn" onclick="closeModal()">✕</button>
             <div id="player"></div>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURACIÓN DE GOOGLE FIREBASE ---
+        // 1. CONFIGURACIÓN DE TU FIREBASE (PON TUS DATOS AQUÍ)
         const firebaseConfig = {
-            apiKey: "AIzaSyAytsEqI8uZYz8HgfaDdipEhhPmKQoxLeg",
-            authDomain: "galeria-privada-kaelia.firebaseapp.com",
-            projectId: "galeria-privada-kaelia",
-            storageBucket: "galeria-privada-kaelia.firebasestorage.app",
-            messagingSenderId: "248784254099",
-            appId: "1:248784254099:web:ea3d671cccc8bc8bd58966",
-            measurementId: "G-V30D7EWJ0T"
+            apiKey: "AQUÍ_TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROYECTO",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_ID",
+            appId: "TU_APP_ID"
         };
 
+        // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // --- LÓGICA DE SUBIDA PÚBLICA ---
-        async function saveToFirebase() {
+        // 2. FUNCIÓN PARA GUARDAR VIDEOS
+        async function saveVideo() {
             const url = document.getElementById('upUrl').value;
-            const title = document.getElementById('upTitle').value || "Untitled";
+            const title = document.getElementById('upTitle').value || "Sin título";
             const cat = document.getElementById('upCat').value || "General";
             const tags = document.getElementById('upTags').value.split(',').map(t => t.trim());
 
-            if(!url) return alert("URL requerida");
+            if (!url) return alert("¡Necesitas poner un link!");
 
             const isDirect = url.match(/\.(mp4|webm|ogg|mov)$/i);
 
-            await db.collection("videos").add({
-                title, url, category: cat, tags,
-                type: isDirect ? "direct" : "embed",
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            toggleUpload();
-            document.querySelectorAll('.upload-form input').forEach(i => i.value = '');
+            try {
+                await db.collection("videos").add({
+                    title, url, category: cat, tags,
+                    type: isDirect ? "direct" : "embed",
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                toggleUpload();
+                document.querySelectorAll('.upload-form input').forEach(i => i.value = '');
+            } catch (e) {
+                alert("Error al guardar: " + e.message);
+            }
         }
 
-        // --- RENDERIZADO EN TIEMPO REAL ---
+        // 3. RENDERIZAR EN TIEMPO REAL
         db.collection("videos").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
             const videos = snapshot.docs.map(doc => doc.data());
-            render(videos);
+            render(videos, document.getElementById('search').value);
         });
 
         function render(videos, filter = '') {
@@ -165,11 +205,13 @@ nav {
                     card.className = 'card';
                     card.innerHTML = `
                         <div class="thumb">
-                            ${vid.type === 'direct' ? `<video muted loop onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` : `<iframe src="${vid.url}"></iframe>`}
+                            ${vid.type === 'direct' 
+                                ? `<video muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` 
+                                : `<iframe src="${vid.url}" allowfullscreen></iframe>`}
                         </div>
                         <div class="info">
                             <h3>${vid.title}</h3>
-                            <div class="tags">${vid.tags.join(' • ')}</div>
+                            <div class="tags">${vid.tags.map(t => '#' + t).join(' ')}</div>
                         </div>
                     `;
                     card.onclick = () => openModal(vid);
@@ -179,20 +221,21 @@ nav {
             });
         }
 
+        // 4. FUNCIONES DEL REPRODUCTOR
         function openModal(vid) {
             const player = document.getElementById('player');
-            // playsinline es vital para que iPhone no robe el video a pantalla completa
             player.innerHTML = vid.type === 'direct' 
-            ? `<video controls autoplay playsinline style="width:100%; height:100%;"><source src="${vid.url}"></video>` 
-            : `<iframe src="${vid.url}" style="width:100%; height:100%;" allowfullscreen allow="autoplay"></iframe>`;
-    
+                ? `<video controls autoplay playsinline style="width:100%; height:100%"><source src="${vid.url}"></video>` 
+                : `<iframe src="${vid.url}${vid.url.includes('?') ? '&' : '?'}autoplay=1" style="width:100%; height:100%" allowfullscreen allow="autoplay"></iframe>`;
+            
             document.getElementById('modal').style.display = 'flex';
-            document.body.style.overflow = 'hidden'; // Bloquea el scroll de atrás
+            document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
             document.getElementById('modal').style.display = 'none';
             document.getElementById('player').innerHTML = '';
+            document.body.style.overflow = 'auto';
         }
 
         function toggleUpload() {
@@ -200,9 +243,13 @@ nav {
             p.style.display = p.style.display === 'block' ? 'none' : 'block';
         }
 
+        // Buscador reactivo
         document.getElementById('search').addEventListener('input', (e) => {
-            // Re-filtrar localmente para velocidad
+            // Se refresca solo por el onSnapshot, pero si quieres velocidad puedes filtrar localmente
         });
+
+        // Cerrar con Escape
+        document.addEventListener('keydown', e => { if(e.key === "Escape") closeModal(); });
     </script>
 </body>
 </html>
