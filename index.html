@@ -3,142 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Universal Archive Studio </title>
+    <title>Stream Archive Pro</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
     <style>
         :root {
-            --bg: #050505;
-            --surface: #0f0f0f;
-            --accent: #ff00aa;
-            --border: #1a1a1a;
-            --text-dim: #666;
+            --bg: #050505; --surface: #0f0f0f; --accent: #ff00aa;
+            --border: #1a1a1a; --text-dim: #666;
         }
-
-        body {
-            margin: 0; background: var(--bg); color: white;
-            font-family: 'Inter', -apple-system, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            overflow-x: hidden;
-        }
-
-        /* BARRA DE NAVEGACIÓN */
-        nav {
-            position: sticky; top: 0; background: rgba(5,5,5,0.95);
-            backdrop-filter: blur(15px); z-index: 100; padding: 12px 15px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .nav-container {
-            display: flex; align-items: center; gap: 10px; 
-            max-width: 1200px; margin: 0 auto;
-        }
-
-        #search {
-            flex: 1; background: var(--surface); border: 1px solid var(--border);
-            padding: 10px 15px; border-radius: 10px; color: white; font-size: 16px;
-            outline: none; transition: border-color 0.3s;
-        }
-        #search:focus { border-color: var(--accent); }
-
-        .btn-add {
-            background: white; color: black; border: none; padding: 10px 18px;
-            border-radius: 8px; font-weight: 600; font-size: 0.8rem;
-            cursor: pointer; text-transform: uppercase;
-        }
-
-        /* PANEL DE SUBIDA */
-        #uploadPanel {
-            display: none; background: var(--surface); padding: 20px;
-            border-bottom: 1px solid var(--border); animation: slide 0.3s ease;
-        }
-        @keyframes slide { from { opacity: 0; transform: translateY(-10px); } }
-
-        .upload-form {
-            max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
-        }
-        .upload-form input {
-            background: #000; border: 1px solid var(--border); padding: 12px;
-            color: white; border-radius: 8px; outline: none; font-size: 0.9rem;
-        }
-
-        /* CUADRÍCULA DE VIDEOS */
-        .main-content { padding: 15px; max-width: 1400px; margin: 0 auto; }
-
-        .section-title {
-            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 3px;
-            color: var(--text-dim); margin: 30px 0 15px; display: flex; align-items: center; gap: 10px;
-        }
-        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-            gap: 20px;
-        }
-
-        .card { cursor: pointer; transition: transform 0.2s; }
-        .card:active { transform: scale(0.98); }
-
-        .thumb {
-            width: 100%; aspect-ratio: 16 / 9; background: #000;
-            border-radius: 12px; overflow: hidden; position: relative;
-            border: 1px solid var(--border);
-        }
-        .thumb video, .thumb iframe {
-            width: 100% !important; height: 100% !important;
-            object-fit: cover; border: none; pointer-events: none;
-        }
-
-        .info h3 { font-size: 0.9rem; margin: 10px 0 4px; font-weight: 500; }
-        .tags { font-size: 0.7rem; color: var(--text-dim); }
-
-        /* REPRODUCTOR (MODAL) */
-        #modal {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.98);
-            z-index: 1000; align-items: center; justify-content: center; padding: 10px;
-        }
-        .modal-inner { width: 100%; max-width: 1000px; position: relative; }
-        #player { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
-        .close-btn {
-            position: absolute; top: -50px; right: 0;
-            background: none; border: none; color: white; font-size: 2rem; cursor: pointer;
-        }
+        /* HEADER */
+        nav { position: sticky; top: 0; background: rgba(5,5,5,0.9); backdrop-filter: blur(15px); z-index: 100; padding: 12px 15px; border-bottom: 1px solid var(--border); }
+        .nav-container { display: flex; align-items: center; gap: 10px; max-width: 1400px; margin: 0 auto; }
+        #search { flex: 1; background: var(--surface); border: 1px solid var(--border); padding: 10px 15px; border-radius: 10px; color: white; font-size: 16px; outline: none; }
+        .btn { background: white; color: black; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.75rem; }
+        .admin-only { display: none; } /* Oculto por defecto */
+
+        /* GRID SIMPLE (Sin secciones) */
+        .main-content { padding: 20px; max-width: 1600px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 25px; }
+
+        .card { position: relative; cursor: pointer; transition: transform 0.2s; }
+        .thumb { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .thumb video, .thumb iframe { width: 100%; height: 100%; object-fit: cover; border: none; pointer-events: none; }
+        .info h3 { font-size: 0.9rem; margin: 10px 0 5px; }
+        
+        /* BOTÓN BORRAR */
+        .del-btn { position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.8); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; z-index: 10; }
+
+        /* MODAL Y RECOMENDADOS */
+        #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1000; overflow-y: auto; padding: 20px 0; }
+        .modal-content { max-width: 1000px; margin: 0 auto; width: 95%; }
+        #player { width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; }
+        .rec-title { margin: 40px 0 20px; font-size: 0.8rem; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+        .grid-rec { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+
+        #uploadPanel { display: none; background: var(--surface); padding: 20px; border-bottom: 1px solid var(--border); }
+        .upload-form { max-width: 500px; margin: 0 auto; display: grid; gap: 10px; }
+        .upload-form input { background: #000; border: 1px solid var(--border); padding: 12px; color: white; border-radius: 8px; }
     </style>
 </head>
 <body>
 
     <nav>
         <div class="nav-container">
-            <input type="text" id="search" placeholder="Buscar título o #tags..." autocomplete="off">
-            <button class="btn-add" onclick="toggleUpload()">+ Subir</button>
+            <input type="text" id="search" placeholder="Buscar..." autocomplete="off">
+            <button class="btn admin-only" id="addShowBtn" onclick="toggleUpload()">+ Subir</button>
+            <button class="btn" id="loginBtn" onclick="handleAuth()">Login</button>
         </div>
     </nav>
 
     <div id="uploadPanel">
         <div class="upload-form">
-            <input type="text" id="upUrl" placeholder="Link del video (.mp4 o embed)">
-            <input type="text" id="upTitle" placeholder="Título del video">
-            <input type="text" id="upCat" placeholder="Categoría (Ej: BLOC, POV)">
+            <input type="text" id="upUrl" placeholder="Link Video">
+            <input type="text" id="upTitle" placeholder="Título">
             <input type="text" id="upTags" placeholder="Tags (separadas por comas)">
-            <button class="btn-add" onclick="saveVideo()" style="width: 100%">Publicar</button>
+            <button class="btn" onclick="saveVideo()" style="background: var(--accent); color: white;">Publicar</button>
         </div>
     </div>
 
-    <main class="main-content" id="catalog"></main>
+    <main class="main-content">
+        <div class="grid" id="mainGrid"></div>
+    </main>
 
     <div id="modal">
-        <div class="modal-inner">
-            <button class="close-btn" onclick="closeModal()">✕</button>
+        <div class="modal-content">
+            <button class="btn" onclick="closeModal()" style="margin-bottom: 20px;">✕ CERRAR</button>
             <div id="player"></div>
+            <div class="rec-title">Más para ver</div>
+            <div class="grid-rec" id="recGrid"></div>
         </div>
     </div>
 
     <script>
-        // 1. CONFIGURACIÓN DE TU FIREBASE (PON TUS DATOS AQUÍ)
+        // CONFIGURACIÓN FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyAytsEqI8uZYz8HgfaDdipEhhPmKQoxLeg",
             authDomain: "galeria-privada-kaelia.firebaseapp.com",
@@ -148,94 +90,109 @@
             appId: "G-V30D7EWJ0T"
         };
 
-        // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
+        let allVideos = [];
 
-        // 2. FUNCIÓN PARA GUARDAR VIDEOS
-        async function saveVideo() {
-            const url = document.getElementById('upUrl').value;
-            const title = document.getElementById('upTitle').value || "Sin título";
-            const cat = document.getElementById('upCat').value || "General";
-            const tags = document.getElementById('upTags').value.split(',').map(t => t.trim());
-
-            if (!url) return alert("¡Necesitas poner un link!");
-
-            const isDirect = url.match(/\.(mp4|webm|ogg|mov)$/i);
-
-            try {
-                await db.collection("videos").add({
-                    title, url, category: cat, tags,
-                    type: isDirect ? "direct" : "embed",
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                toggleUpload();
-                document.querySelectorAll('.upload-form input').forEach(i => i.value = '');
-            } catch (e) {
-                alert("Error al guardar: " + e.message);
+        // --- AUTENTICACIÓN ---
+        function handleAuth() {
+            if (auth.currentUser) {
+                auth.signOut();
+            } else {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider);
             }
         }
 
-        // 3. RENDERIZAR EN TIEMPO REAL
-        db.collection("videos").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
-            const videos = snapshot.docs.map(doc => doc.data());
-            render(videos, document.getElementById('search').value);
+        auth.onAuthStateChanged(user => {
+            const adminElements = document.querySelectorAll('.admin-only');
+            const loginBtn = document.getElementById('loginBtn');
+            if (user) {
+                adminElements.forEach(el => el.style.display = 'block');
+                loginBtn.innerText = 'Logout';
+                console.log("Admin logueado:", user.email);
+            } else {
+                adminElements.forEach(el => el.style.display = 'none');
+                loginBtn.innerText = 'Login Admin';
+            }
+            render(allVideos); // Re-render para mostrar/ocultar botones de borrar
         });
 
+        // --- DATOS ---
+        db.collection("videos").orderBy("timestamp", "desc").onSnapshot(snap => {
+            allVideos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            render(allVideos, document.getElementById('search').value);
+        });
+
+        async function saveVideo() {
+            const url = document.getElementById('upUrl').value;
+            const title = document.getElementById('upTitle').value || "Untitled";
+            const tags = document.getElementById('upTags').value.split(',').map(t => t.trim());
+            if(!url) return;
+            const isDirect = url.match(/\.(mp4|webm|ogg|mov)$/i);
+            await db.collection("videos").add({
+                title, url, tags, type: isDirect ? "direct" : "embed",
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            toggleUpload();
+        }
+
+        async function deleteVideo(id, e) {
+            e.stopPropagation();
+            if(confirm("¿Borrar este video para siempre?")) {
+                await db.collection("videos").doc(id).delete();
+            }
+        }
+
+        // --- RENDER ---
         function render(videos, filter = '') {
-            const catalog = document.getElementById('catalog');
-            catalog.innerHTML = '';
+            const grid = document.getElementById('mainGrid');
+            grid.innerHTML = '';
             const query = filter.toLowerCase();
 
-            const filtered = videos.filter(v => 
-                v.title.toLowerCase().includes(query) || 
-                v.category.toLowerCase().includes(query) ||
-                v.tags.some(t => t.toLowerCase().includes(query))
-            );
-
-            const categories = [...new Set(filtered.map(v => v.category))];
-
-            categories.forEach(cat => {
-                const section = document.createElement('section');
-                section.innerHTML = `<div class="section-title">${cat}</div><div class="grid"></div>`;
-                const grid = section.querySelector('.grid');
-
-                filtered.filter(v => v.category === cat).forEach(vid => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <div class="thumb">
-                            ${vid.type === 'direct' 
-                                ? `<video muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` 
-                                : `<iframe src="${vid.url}" allowfullscreen></iframe>`}
-                        </div>
-                        <div class="info">
-                            <h3>${vid.title}</h3>
-                            <div class="tags">${vid.tags.map(t => '#' + t).join(' ')}</div>
-                        </div>
-                    `;
-                    card.onclick = () => openModal(vid);
-                    grid.appendChild(card);
-                });
-                catalog.appendChild(section);
+            videos.filter(v => v.title.toLowerCase().includes(query) || v.tags.some(t => t.toLowerCase().includes(query)))
+            .forEach(vid => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="thumb">
+                        ${vid.type === 'direct' ? `<video muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` : `<iframe src="${vid.url}"></iframe>`}
+                    </div>
+                    ${auth.currentUser ? `<button class="del-btn" onclick="deleteVideo('${vid.id}', event)">Borrar</button>` : ''}
+                    <div class="info"><h3>${vid.title}</h3></div>
+                `;
+                card.onclick = () => openModal(vid);
+                grid.appendChild(card);
             });
         }
 
-        // 4. FUNCIONES DEL REPRODUCTOR
         function openModal(vid) {
             const player = document.getElementById('player');
             player.innerHTML = vid.type === 'direct' 
-                ? `<video controls autoplay playsinline style="width:100%; height:100%"><source src="${vid.url}"></video>` 
-                : `<iframe src="${vid.url}${vid.url.includes('?') ? '&' : '?'}autoplay=1" style="width:100%; height:100%" allowfullscreen allow="autoplay"></iframe>`;
+                ? `<video controls autoplay playsinline style="width:100%;height:100%"><source src="${vid.url}"></video>` 
+                : `<iframe src="${vid.url}${vid.url.includes('?') ? '&' : '?'}autoplay=1" style="width:100%;height:100%" allowfullscreen allow="autoplay"></iframe>`;
             
-            document.getElementById('modal').style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            // Recomendados Aleatorios
+            const recGrid = document.getElementById('recGrid');
+            recGrid.innerHTML = '';
+            const randoms = [...allVideos].filter(v => v.id !== vid.id).sort(() => 0.5 - Math.random()).slice(0, 4);
+            
+            randoms.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'card';
+                item.innerHTML = `<div class="thumb" style="aspect-ratio:16/9">${r.type==='direct' ? `<video muted><source src="${r.url}"></video>` : `<iframe src="${r.url}"></iframe>`}</div><div class="info"><h3 style="font-size:0.7rem">${r.title}</h3></div>`;
+                item.onclick = () => openModal(r);
+                recGrid.appendChild(item);
+            });
+
+            document.getElementById('modal').style.display = 'block';
+            window.scrollTo(0, 0);
         }
 
         function closeModal() {
             document.getElementById('modal').style.display = 'none';
             document.getElementById('player').innerHTML = '';
-            document.body.style.overflow = 'auto';
         }
 
         function toggleUpload() {
@@ -243,13 +200,7 @@
             p.style.display = p.style.display === 'block' ? 'none' : 'block';
         }
 
-        // Buscador reactivo
-        document.getElementById('search').addEventListener('input', (e) => {
-            // Se refresca solo por el onSnapshot, pero si quieres velocidad puedes filtrar localmente
-        });
-
-        // Cerrar con Escape
-        document.addEventListener('keydown', e => { if(e.key === "Escape") closeModal(); });
+        document.getElementById('search').addEventListener('input', e => render(allVideos, e.target.value));
     </script>
 </body>
 </html>
