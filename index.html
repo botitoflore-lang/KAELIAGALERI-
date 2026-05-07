@@ -91,133 +91,152 @@
             appId: "G-V30D7EWJ0T"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        let allVideos = [];
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+let allVideos = [];
 
-        // --- LÓGICA DE AUTENTICACIÓN (REDIRECT PARA MÓVIL) ---
-        function handleAuth() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            if (auth.currentUser) {
-                auth.signOut().then(() => location.reload());
-            } else {
-                // signInWithRedirect es MUCHO mejor para celulares que signInWithPopup
-                auth.signInWithRedirect(provider);
-            }
-        }
+// --- NUEVA LÓGICA DE AUTENTICACIÓN MEJORADA ---
 
-        // Detectar si el usuario volvió del login
-        auth.getRedirectResult().catch(e => console.error("Error login:", e));
+// 1. Esto se ejecuta automáticamente al cargar la página
+auth.getRedirectResult().then((result) => {
+    if (result.user) {
+        console.log("Login exitoso tras redirección:", result.user.email);
+        // No hace falta hacer nada más, onAuthStateChanged se encargará del resto
+    }
+}).catch((error) => {
+    console.error("Error al volver del login:", error.message);
+});
 
-        auth.onAuthStateChanged(user => {
-            const adminElements = document.querySelectorAll('.admin-only');
-            const loginBtn = document.getElementById('loginBtn');
-            if (user) {
-                adminElements.forEach(el => el.style.display = 'block');
-                loginBtn.innerText = 'Logout';
-            } else {
-                adminElements.forEach(el => el.style.display = 'none');
-                loginBtn.innerText = 'Login Admin';
-            }
-            render(allVideos);
+// 2. Función del botón
+function handleAuth() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    if (auth.currentUser) {
+        auth.signOut().then(() => {
+            alert("Sesión cerrada");
+            location.reload();
         });
+    } else {
+        // Guardamos un aviso en la consola para saber que lo intentamos
+        console.log("Redirigiendo a Google...");
+        auth.signInWithRedirect(provider);
+    }
+}
 
-        // --- MANEJO DE DATOS ---
-        db.collection("videos").orderBy("timestamp", "desc").onSnapshot(snap => {
-            allVideos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            render(allVideos, document.getElementById('search').value);
-        });
+// 3. El "Vigilante" que activa los botones de Admin
+auth.onAuthStateChanged(user => {
+    const adminElements = document.querySelectorAll('.admin-only');
+    const loginBtn = document.getElementById('loginBtn');
+    
+    if (user) {
+        console.log("Usuario detectado:", user.email);
+        adminElements.forEach(el => el.style.display = 'block');
+        loginBtn.innerText = 'Cerrar Sesión';
+        loginBtn.style.background = '#ff00aa'; // Cambia de color para avisar que eres admin
+        loginBtn.style.color = 'white';
+    } else {
+        adminElements.forEach(el => el.style.display = 'none');
+        loginBtn.innerText = 'Login Admin';
+        loginBtn.style.background = 'white';
+        loginBtn.style.color = 'black';
+    }
+    // Forzamos un re-render para que aparezcan los botones de eliminar
+    render(allVideos);
+});
 
-        async function saveVideo() {
-            const url = document.getElementById('upUrl').value;
-            const title = document.getElementById('upTitle').value || "Video sin título";
-            const tags = document.getElementById('upTags').value.split(',').map(t => t.trim());
-            if(!url) return alert("Pon una URL válida");
-            const isDirect = url.match(/\.(mp4|webm|ogg|mov)$/i);
-            await db.collection("videos").add({
-                title, url, tags, type: isDirect ? "direct" : "embed",
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            toggleUpload();
-            document.querySelectorAll('.upload-form input').forEach(i => i.value = '');
-        }
+// --- EL RESTO DEL CÓDIGO SE MANTIENE IGUAL ---
 
-        async function deleteVideo(id, e) {
-            e.stopPropagation();
-            if(confirm("¿Seguro que quieres eliminar este video de la base de datos pública?")) {
-                await db.collection("videos").doc(id).delete();
-            }
-        }
+db.collection("videos").orderBy("timestamp", "desc").onSnapshot(snap => {
+    allVideos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    render(allVideos, document.getElementById('search').value);
+});
 
-        // --- RENDERIZADO ---
-        function render(videos, filter = '') {
-            const grid = document.getElementById('mainGrid');
-            grid.innerHTML = '';
-            const query = filter.toLowerCase();
+async function saveVideo() {
+    const url = document.getElementById('upUrl').value;
+    const title = document.getElementById('upTitle').value || "Video sin título";
+    const tags = document.getElementById('upTags').value.split(',').map(t => t.trim());
+    if(!url) return alert("Pon una URL válida");
+    const isDirect = url.match(/\.(mp4|webm|ogg|mov)$/i);
+    await db.collection("videos").add({
+        title, url, tags, type: isDirect ? "direct" : "embed",
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toggleUpload();
+    document.querySelectorAll('.upload-form input').forEach(i => i.value = '');
+}
 
-            const filtered = videos.filter(v => 
-                v.title.toLowerCase().includes(query) || 
-                v.tags.some(t => t.toLowerCase().includes(query))
-            );
+async function deleteVideo(id, e) {
+    e.stopPropagation();
+    if(confirm("¿Seguro que quieres eliminar este video?")) {
+        await db.collection("videos").doc(id).delete();
+    }
+}
 
-            filtered.forEach(vid => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <div class="thumb">
-                        ${vid.type === 'direct' ? `<video muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` : `<iframe src="${vid.url}"></iframe>`}
-                    </div>
-                    ${auth.currentUser ? `<button class="del-btn" onclick="deleteVideo('${vid.id}', event)">ELIMINAR</button>` : ''}
-                    <div class="info"><h3>${vid.title}</h3></div>
-                `;
-                card.onclick = () => openModal(vid);
-                grid.appendChild(card);
-            });
-        }
+function render(videos, filter = '') {
+    const grid = document.getElementById('mainGrid');
+    grid.innerHTML = '';
+    const query = filter.toLowerCase();
 
-        function openModal(vid) {
-            const player = document.getElementById('player');
-            player.innerHTML = vid.type === 'direct' 
-                ? `<video controls autoplay playsinline style="width:100%;height:100%"><source src="${vid.url}"></video>` 
-                : `<iframe src="${vid.url}${vid.url.includes('?') ? '&' : '?'}autoplay=1" style="width:100%;height:100%" allowfullscreen allow="autoplay"></iframe>`;
-            
-            // Lógica de Recomendados Aleatorios
-            const recGrid = document.getElementById('recGrid');
-            recGrid.innerHTML = '';
-            const randoms = [...allVideos].filter(v => v.id !== vid.id).sort(() => 0.5 - Math.random()).slice(0, 4);
-            
-            randoms.forEach(r => {
-                const item = document.createElement('div');
-                item.className = 'card';
-                item.innerHTML = `
-                    <div class="thumb" style="aspect-ratio:16/9">
-                        ${r.type === 'direct' ? `<video muted><source src="${r.url}"></video>` : `<iframe src="${r.url}"></iframe>`}
-                    </div>
-                    <div class="info"><h3 style="font-size:0.75rem">${r.title}</h3></div>
-                `;
-                item.onclick = (e) => { e.stopPropagation(); openModal(r); };
-                recGrid.appendChild(item);
-            });
+    const filtered = videos.filter(v => 
+        v.title.toLowerCase().includes(query) || 
+        v.tags.some(t => t.toLowerCase().includes(query))
+    );
 
-            document.getElementById('modal').style.display = 'block';
-            window.scrollTo(0, 0); // Sube el modal al inicio
-            document.body.style.overflow = 'hidden';
-        }
+    filtered.forEach(vid => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <div class="thumb">
+                ${vid.type === 'direct' ? `<video muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"><source src="${vid.url}"></video>` : `<iframe src="${vid.url}"></iframe>`}
+            </div>
+            ${auth.currentUser ? `<button class="del-btn" onclick="deleteVideo('${vid.id}', event)">ELIMINAR</button>` : ''}
+            <div class="info"><h3>${vid.title}</h3></div>
+        `;
+        card.onclick = () => openModal(vid);
+        grid.appendChild(card);
+    });
+}
 
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('player').innerHTML = '';
-            document.body.style.overflow = 'auto';
-        }
+function openModal(vid) {
+    const player = document.getElementById('player');
+    player.innerHTML = vid.type === 'direct' 
+        ? `<video controls autoplay playsinline style="width:100%;height:100%"><source src="${vid.url}"></video>` 
+        : `<iframe src="${vid.url}${vid.url.includes('?') ? '&' : '?'}autoplay=1" style="width:100%;height:100%" allowfullscreen allow="autoplay"></iframe>`;
+    
+    const recGrid = document.getElementById('recGrid');
+    recGrid.innerHTML = '';
+    const randoms = [...allVideos].filter(v => v.id !== vid.id).sort(() => 0.5 - Math.random()).slice(0, 4);
+    
+    randoms.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'card';
+        item.innerHTML = `
+            <div class="thumb" style="aspect-ratio:16/9">
+                ${r.type === 'direct' ? `<video muted><source src="${r.url}"></video>` : `<iframe src="${r.url}"></iframe>`}
+            </div>
+            <div class="info"><h3 style="font-size:0.75rem">${r.title}</h3></div>
+        `;
+        item.onclick = (e) => { e.stopPropagation(); openModal(r); };
+        recGrid.appendChild(item);
+    });
 
-        function toggleUpload() {
-            const p = document.getElementById('uploadPanel');
-            p.style.display = p.style.display === 'block' ? 'none' : 'block';
-        }
+    document.getElementById('modal').style.display = 'block';
+    window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden';
+}
 
-        document.getElementById('search').addEventListener('input', e => render(allVideos, e.target.value));
-        document.addEventListener('keydown', e => { if(e.key === "Escape") closeModal(); });
+function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('player').innerHTML = '';
+    document.body.style.overflow = 'auto';
+}
+
+function toggleUpload() {
+    const p = document.getElementById('uploadPanel');
+    p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+
+document.getElementById('search').addEventListener('input', e => render(allVideos, e.target.value));   
     </script>
 </body>
 </html>
