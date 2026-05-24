@@ -53,7 +53,8 @@
         .del-btn { position: absolute; top: 10px; right: 10px; background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; font-size: 0.6rem; font-weight: bold; z-index: 5; }
 
         /* FORMULARIOS */
-        input.full { width: 100%; background: #000; border: 1px solid var(--border); padding: 12px; color: white; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        input.full, select.full { width: 100%; background: #000; border: 1px solid var(--border); padding: 12px; color: white; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        select.full option { background: var(--surface); color: white; }
         .hidden { display: none; }
 
         /* MODAL */
@@ -89,6 +90,12 @@
             <input type="text" id="upUrl" class="full" placeholder="URL (.mp4 o embed)">
             <input type="text" id="upTitle" class="full" placeholder="Título">
             <input type="text" id="upTags" class="full" placeholder="Tags (ej: 4k, pov)">
+            
+            <select id="upVisibility" class="full">
+                <option value="publico">🌐 Público (Todos lo ven)</option>
+                <option value="privado">🔒 Privado (Solo tú lo ves)</option>
+            </select>
+
             <button class="sidebar-btn" style="background:white; color:black;" onclick="saveVideo()">Subir Video</button>
         </div>
     </div>
@@ -200,14 +207,16 @@
             const url = document.getElementById('upUrl').value;
             const title = document.getElementById('upTitle').value || "Sin título";
             const tags = document.getElementById('upTags').value.split(',').map(t => t.trim().toLowerCase()).filter(t => t !== "");
+            const visibility = document.getElementById('upVisibility').value; // NUEVO
             if(!url || !currentUser) return;
 
             await db.collection("videos").add({
-                title, url, tags, 
+                title, url, tags, visibility, // NUEVO: Se guarda la visibilidad
                 uploader: currentUser.user, pfp: currentUser.pfp,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             document.querySelectorAll('#publishBox input').forEach(i => i.value = '');
+            document.getElementById('upVisibility').value = 'publico'; // Resetea a público
             toggleSidebar();
         }
 
@@ -221,14 +230,25 @@
             grid.innerHTML = '';
             const query = filter.toLowerCase();
 
-            const filtered = videos.filter(v => 
-                v.title.toLowerCase().includes(query) || 
-                v.tags.some(t => t.includes(query)) ||
-                v.uploader.toLowerCase().includes(query)
-            );
+            // MODIFICADO: Filtrado estricto por privacidad y búsqueda
+            const filtered = videos.filter(v => {
+                // 1. Control de Privacidad: Se muestra si es público, si eres el dueño, o si eres admin global.
+                const esPublico = v.visibility !== 'privado';
+                const soyElDueno = currentUser && v.uploader === currentUser.user;
+                const tienePermisoVer = esPublico || soyElDueno || isGlobalAdmin;
+
+                if (!tienePermisoVer) return false;
+
+                // 2. Control de Búsqueda
+                return v.title.toLowerCase().includes(query) || 
+                       v.tags.some(t => t.includes(query)) ||
+                       v.uploader.toLowerCase().includes(query);
+            });
 
             filtered.forEach(vid => {
                 const canDelete = isGlobalAdmin || (currentUser && vid.uploader === currentUser.user);
+                const esPrivado = vid.visibility === 'privado'; // NUEVO indicativo visual
+                
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
@@ -239,7 +259,9 @@
                     <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
                         <img src="${vid.pfp}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">
                         <div>
-                            <h3 style="font-size:0.85rem; margin:0;">${vid.title}</h3>
+                            <h3 style="font-size:0.85rem; margin:0;">
+                                ${esPrivado ? '🔒 ' : ''}${vid.title}
+                            </h3>
                             <div style="margin-top:4px;">
                                 ${vid.tags.map(t => `<span class="tag-pill">#${t}</span>`).join('')}
                             </div>
@@ -266,11 +288,20 @@
             
             const recGrid = document.getElementById('recGrid');
             recGrid.innerHTML = '';
-            const randoms = [...allVideos].filter(v => v.id !== vid.id).sort(() => 0.5 - Math.random()).slice(0, 4);
+
+            // MODIFICADO: Los recomendados también respetan la privacidad
+            const disponiblesParaRecomendar = allVideos.filter(v => {
+                if (v.id === vid.id) return false;
+                const esPublico = v.visibility !== 'privado';
+                const soyElDueno = currentUser && v.uploader === currentUser.user;
+                return esPublico || soyElDueno || isGlobalAdmin;
+            });
+
+            const randoms = [...disponiblesParaRecomendar].sort(() => 0.5 - Math.random()).slice(0, 4);
             randoms.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'card';
-                item.innerHTML = `<div class="thumb">${r.url.includes('mp4') ? `<video muted><source src="${r.url}"></video>` : `<iframe src="${r.url}"></iframe>`}</div><div class="info"><h3>${r.title}</h3></div>`;
+                item.innerHTML = `<div class="thumb">${r.url.includes('mp4') ? `<video muted><source src="${r.url}"></video>` : `<iframe src="${r.url}"></iframe>`}</div><div class="info"><h3>${r.visibility === 'privado' ? '🔒 ' : ''}${r.title}</h3></div>`;
                 item.onclick = (e) => { e.stopPropagation(); openModal(r); };
                 recGrid.appendChild(item);
             });
